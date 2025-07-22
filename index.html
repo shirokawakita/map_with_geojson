@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GeoJSON地図ビューアー</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" 
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" 
+          crossorigin=""/>
+    
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Arial', sans-serif;
+            background-color: #f0f0f0;
+        }
+        
+        .header {
+            background-color: #2c3e50;
+            color: white;
+            padding: 15px;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        
+        .container {
+            display: flex;
+            height: calc(100vh - 80px);
+        }
+        
+        .sidebar {
+            width: 300px;
+            background-color: white;
+            padding: 20px;
+            overflow-y: auto;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+        }
+        
+        .drop-zone {
+            border: 3px dashed #3498db;
+            border-radius: 10px;
+            padding: 40px 20px;
+            text-align: center;
+            background-color: #ecf0f1;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .drop-zone.dragover {
+            border-color: #2ecc71;
+            background-color: #d5f4e6;
+            transform: scale(1.02);
+        }
+        
+        .drop-zone h3 {
+            color: #2c3e50;
+            margin: 0 0 10px 0;
+        }
+        
+        .drop-zone p {
+            color: #7f8c8d;
+            margin: 5px 0;
+            font-size: 14px;
+        }
+        
+        .file-input {
+            display: none;
+        }
+        
+        .layers-list {
+            background-color: white;
+            border-radius: 5px;
+            padding: 15px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .layer-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px;
+            margin-bottom: 10px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            border-left: 4px solid #3498db;
+        }
+        
+        .layer-info {
+            flex: 1;
+        }
+        
+        .layer-name {
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+        
+        .layer-details {
+            font-size: 12px;
+            color: #7f8c8d;
+        }
+        
+        .layer-controls {
+            display: flex;
+            gap: 5px;
+        }
+        
+        .btn {
+            padding: 5px 10px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background-color 0.3s;
+        }
+        
+        .btn-toggle {
+            background-color: #3498db;
+            color: white;
+        }
+        
+        .btn-toggle:hover {
+            background-color: #2980b9;
+        }
+        
+        .btn-toggle.hidden {
+            background-color: #95a5a6;
+        }
+        
+        .btn-remove {
+            background-color: #e74c3c;
+            color: white;
+        }
+        
+        .btn-remove:hover {
+            background-color: #c0392b;
+        }
+        
+        #map {
+            flex: 1;
+            height: 100%;
+        }
+        
+        .info-box {
+            background-color: #ecf0f1;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+        
+        .info-box h4 {
+            margin: 0 0 10px 0;
+            color: #2c3e50;
+        }
+        
+        .info-box p {
+            margin: 5px 0;
+            font-size: 14px;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+            }
+            
+            .sidebar {
+                width: 100%;
+                height: 250px;
+                order: 2;
+            }
+            
+            #map {
+                height: calc(100vh - 330px);
+                order: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🗺️ GeoJSON地図ビューアー</h1>
+    </div>
+    
+    <div class="container">
+        <div class="sidebar">
+            <div class="drop-zone" id="dropZone">
+                <h3>📁 GeoJSONファイルをドロップ</h3>
+                <p>GeoJSONファイルをここにドラッグ＆ドロップするか、</p>
+                <p>クリックしてファイルを選択してください</p>
+                <input type="file" id="fileInput" class="file-input" accept=".geojson,.json" multiple>
+            </div>
+            
+            <div class="layers-list">
+                <h4 style="margin-top: 0; color: #2c3e50;">読み込み済みレイヤー</h4>
+                <div id="layersList">
+                    <p style="color: #7f8c8d; text-align: center; font-style: italic;">まだレイヤーが追加されていません</p>
+                </div>
+            </div>
+            
+            <div class="info-box">
+                <h4>使用方法</h4>
+                <p>• GeoJSONファイルをドロップして地図に追加</p>
+                <p>• マーカーをクリックして詳細情報を表示</p>
+                <p>• レイヤーの表示/非表示を切り替え</p>
+                <p>• 不要なレイヤーを削除</p>
+            </div>
+        </div>
+        
+        <div id="map"></div>
+    </div>
+
+    <!-- Leaflet JavaScript -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" 
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" 
+            crossorigin=""></script>
+    
+    <script>
+        // 地図を初期化（東京駅を中心に）
+        const map = L.map('map').setView([35.6812, 139.7671], 10);
+
+        // OpenStreetMapタイルレイヤーを追加
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            maxZoom: 19
+        }).addTo(map);
+
+        // レイヤー管理
+        const loadedLayers = new Map();
+        let layerIdCounter = 0;
+
+        // ランダムカラー生成
+        function getRandomColor() {
+            const colors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#34495e', '#e67e22', '#1abc9c'];
+            return colors[Math.floor(Math.random() * colors.length)];
+        }
+
+        // ポイントスタイル関数
+        function getPointStyle(color) {
+            return {
+                radius: 8,
+                fillColor: color,
+                color: '#fff',
+                weight: 2,
+                opacity: 1,
+                fillOpacity: 0.8
+            };
+        }
+
+        // ポリゴン/ラインスタイル関数
+        function getFeatureStyle(color) {
+            return {
+                fillColor: color,
+                weight: 3,
+                opacity: 1,
+                color: color,
+                fillOpacity: 0.3
+            };
+        }
+
+        // ポップアップ内容を生成
+        function onEachFeature(feature, layer) {
+            let popupContent = '<div style="font-family: Arial; max-width: 250px;">';
+            
+            if (feature.properties) {
+                Object.keys(feature.properties).forEach(key => {
+                    const value = feature.properties[key];
+                    if (value !== null && value !== undefined && value !== '') {
+                        popupContent += `<p style="margin: 3px 0;"><strong>${key}:</strong> ${value}</p>`;
+                    }
+                });
+            } else {
+                popupContent += '<p>プロパティ情報がありません</p>';
+            }
+            
+            popupContent += '</div>';
+            layer.bindPopup(popupContent);
+        }
+
+        // GeoJSONレイヤーを追加
+        function addGeoJSONLayer(geoJsonData, fileName) {
+            const layerId = `layer_${layerIdCounter++}`;
+            const color = getRandomColor();
+            
+            try {
+                const layer = L.geoJSON(geoJsonData, {
+                    pointToLayer: function (feature, latlng) {
+                        return L.circleMarker(latlng, getPointStyle(color));
+                    },
+                    style: function(feature) {
+                        return getFeatureStyle(color);
+                    },
+                    onEachFeature: onEachFeature
+                }).addTo(map);
+
+                // レイヤー情報を保存
+                loadedLayers.set(layerId, {
+                    layer: layer,
+                    name: fileName,
+                    color: color,
+                    visible: true,
+                    featureCount: geoJsonData.features ? geoJsonData.features.length : 0
+                });
+
+                // サイドバーにレイヤー項目を追加
+                updateLayersList();
+
+                // 地図をレイヤーに合わせて調整
+                if (geoJsonData.features && geoJsonData.features.length > 0) {
+                    map.fitBounds(layer.getBounds(), { padding: [20, 20] });
+                }
+
+                console.log(`レイヤー追加: ${fileName} (${geoJsonData.features ? geoJsonData.features.length : 0} フィーチャー)`);
+                
+            } catch (error) {
+                console.error('GeoJSONの追加中にエラーが発生しました:', error);
+                alert('GeoJSONファイルの形式が正しくありません。');
+            }
+        }
+
+        // レイヤーリストを更新
+        function updateLayersList() {
+            const layersListElement = document.getElementById('layersList');
+            
+            if (loadedLayers.size === 0) {
+                layersListElement.innerHTML = '<p style="color: #7f8c8d; text-align: center; font-style: italic;">まだレイヤーが追加されていません</p>';
+                return;
+            }
+
+            let html = '';
+            loadedLayers.forEach((layerInfo, layerId) => {
+                html += `
+                    <div class="layer-item">
+                        <div class="layer-info">
+                            <div class="layer-name">${layerInfo.name}</div>
+                            <div class="layer-details">${layerInfo.featureCount} フィーチャー</div>
+                        </div>
+                        <div class="layer-controls">
+                            <button class="btn btn-toggle ${!layerInfo.visible ? 'hidden' : ''}" 
+                                    onclick="toggleLayer('${layerId}')">
+                                ${layerInfo.visible ? '非表示' : '表示'}
+                            </button>
+                            <button class="btn btn-remove" onclick="removeLayer('${layerId}')">削除</button>
+                        </div>
+                    </div>
+                `;
+            });
+            layersListElement.innerHTML = html;
+        }
+
+        // レイヤー表示/非表示切り替え
+        function toggleLayer(layerId) {
+            const layerInfo = loadedLayers.get(layerId);
+            if (layerInfo) {
+                if (layerInfo.visible) {
+                    map.removeLayer(layerInfo.layer);
+                    layerInfo.visible = false;
+                } else {
+                    map.addLayer(layerInfo.layer);
+                    layerInfo.visible = true;
+                }
+                updateLayersList();
+            }
+        }
+
+        // レイヤー削除
+        function removeLayer(layerId) {
+            const layerInfo = loadedLayers.get(layerId);
+            if (layerInfo) {
+                map.removeLayer(layerInfo.layer);
+                loadedLayers.delete(layerId);
+                updateLayersList();
+            }
+        }
+
+        // ファイル読み込み処理
+        function handleFiles(files) {
+            Array.from(files).forEach(file => {
+                if (file.type === 'application/json' || file.name.endsWith('.geojson') || file.name.endsWith('.json')) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        try {
+                            const geoJsonData = JSON.parse(e.target.result);
+                            addGeoJSONLayer(geoJsonData, file.name);
+                        } catch (error) {
+                            console.error('ファイル読み込みエラー:', error);
+                            alert(`${file.name} の読み込みに失敗しました。有効なGeoJSONファイルか確認してください。`);
+                        }
+                    };
+                    reader.readAsText(file);
+                } else {
+                    alert(`${file.name} はサポートされていないファイル形式です。GeoJSONファイル(.geojson, .json)を選択してください。`);
+                }
+            });
+        }
+
+        // ドラッグ＆ドロップイベント設定
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+
+        dropZone.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            handleFiles(e.target.files);
+        });
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+
+        dropZone.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            handleFiles(e.dataTransfer.files);
+        });
+
+        // 地図全体でのドロップも許可
+        map.getContainer().addEventListener('dragover', (e) => {
+            e.preventDefault();
+        });
+
+        map.getContainer().addEventListener('drop', (e) => {
+            e.preventDefault();
+            handleFiles(e.dataTransfer.files);
+        });
+
+        // マップクリックイベント（座標表示）
+        map.on('click', function(e) {
+            console.log('クリック座標:', e.latlng.lat, e.latlng.lng);
+        });
+    </script>
+</body>
+</html> 
