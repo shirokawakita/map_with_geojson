@@ -19,9 +19,11 @@ Open Street MapとLeafletを使用したインタラクティブなGeoJSONファ
 ### 🎯 主要機能
 - **ドラッグ＆ドロップ対応**: GeoJSONファイルを地図上に簡単に読み込み
 - **複数レイヤー管理**: 複数のGeoJSONファイルを同時に表示・管理
-- **レイヤー制御**: 個別のレイヤーの表示/非表示切り替え
-- **自動スタイリング**: レイヤーごとに自動的に異なる色を適用
+- **ベースマップ切替**: OpenStreetMap / 地理院地図（標準） / 地理院白地図（blank）
+- **レイヤー表示のオン/オフ**: チェックボックスで個別に制御
+- **レイヤー色の変更**: カラーピッカーで任意の色に即時変更（ポイント/ライン/ポリゴン対応）
 - **インタラクティブポップアップ**: フィーチャーをクリックして詳細情報を表示
+- **長いファイル名の折り返し表示**: サイドバーでレイヤー名が省略されずに表示
 
 ### 🎨 デザイン機能
 - **レスポンシブデザイン**: デスクトップ・モバイル対応
@@ -37,33 +39,21 @@ Open Street MapとLeafletを使用したインタラクティブなGeoJSONファ
 
 ### 基本的な使い方
 
-1. **ファイルの読み込み**
+1. **ベースマップを選択（任意）**
+   - サイドバー上部のプルダウンで `OpenStreetMap / 地理院地図（標準） / 地理院白地図` を選択。
+2. **ファイルの読み込み**
    - ドロップエリアにGeoJSONファイルをドラッグ＆ドロップ
    - または、ドロップエリアをクリックしてファイル選択ダイアログを開く
    - 地図上に直接ファイルをドロップすることも可能
+3. **レイヤー管理（読み込み後）**
+   - レイヤー名の右側にあるチェックボックスで表示のオン/オフを切り替え
+   - カラーピッカーで色を変更（ポイントは塗り色、ライン/ポリゴンは線色と塗り色に適用）
+   - 「削除」ボタンでレイヤーを地図から削除
 
-2. **レイヤー管理**
-   - 読み込まれたレイヤーは右側のサイドバーに表示
-   - 「表示/非表示」ボタンでレイヤーの表示切り替え
-   - 「削除」ボタンで不要なレイヤーを削除
-
-3. **地図操作**
-   - マウスホイール：拡大縮小
-   - ドラッグ：地図の移動
-   - フィーチャークリック：詳細情報をポップアップ表示
-
-### 詳細操作
-
-#### ファイルの読み込み方法
-- **方法1**: ドロップエリアにファイルをドラッグ＆ドロップ
-- **方法2**: ドロップエリアをクリックしてファイル選択
-- **方法3**: 地図上に直接ファイルをドロップ
-- **複数ファイル**: 一度に複数のGeoJSONファイルを選択・読み込み可能
-
-#### レイヤー操作
-- **表示切り替え**: レイヤーリストの「表示/非表示」ボタン
-- **レイヤー削除**: レイヤーリストの「削除」ボタン
-- **自動色分け**: 読み込み時に自動的に異なる色が割り当てられる
+### 地図操作
+- マウスホイール：拡大縮小
+- ドラッグ：地図の移動
+- フィーチャークリック：詳細情報をポップアップ表示
 
 ## 📁 対応ファイル形式
 
@@ -71,25 +61,22 @@ Open Street MapとLeafletを使用したインタラクティブなGeoJSONファ
 - **.json**: JSON形式のGeoJSONファイル
 
 ### サポートするGeoJSONフィーチャータイプ
-- **Point**: ポイントデータ（マーカー表示）
-- **LineString**: ライン/ルートデータ
-- **Polygon**: ポリゴン/エリアデータ
-- **MultiPoint**: 複数ポイントデータ
-- **MultiLineString**: 複数ラインデータ
-- **MultiPolygon**: 複数ポリゴンデータ
-- **GeometryCollection**: ジオメトリコレクション
+- **Point** / **MultiPoint**
+- **LineString** / **MultiLineString**
+- **Polygon** / **MultiPolygon**
+- **GeometryCollection**
 
 ## 🛠️ 技術仕様
 
 ### 使用ライブラリ
 - **[Leaflet.js](https://leafletjs.com/)** v1.9.4: インタラクティブ地図ライブラリ
-- **[OpenStreetMap](https://www.openstreetmap.org/)**: ベースマップタイル
+- ベースマップタイル
+  - **OpenStreetMap**: `https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png`
+  - **地理院地図（標準）**: `https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png`
+  - **地理院白地図（blank）**: `https://cyberjapandata.gsi.go.jp/xyz/blank/{z}/{x}/{y}.png`
 
 ### ブラウザ対応
-- Chrome（推奨）
-- Firefox
-- Safari
-- Edge
+- Chrome（推奨） / Firefox / Safari / Edge
 
 ### 必要環境
 - モダンブラウザ（ES6対応）
@@ -104,16 +91,12 @@ Open Street MapとLeafletを使用したインタラクティブなGeoJSONファ
 
 ### Webサーバーでの実行（推奨）
 ```bash
-# Python3の場合
+# Python3
 python -m http.server 8000
 
-# Python2の場合
-python -m SimpleHTTPServer 8000
-
-# Node.jsのserveを使用
+# Node.js (serve)
 npx serve .
 ```
-
 ブラウザで `http://localhost:8000` にアクセス
 
 ## 💡 使用例
@@ -127,15 +110,8 @@ npx serve .
   "features": [
     {
       "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [139.7671, 35.6812]
-      },
-      "properties": {
-        "name": "東京駅",
-        "category": "交通",
-        "description": "日本の鉄道の中心駅"
-      }
+      "geometry": { "type": "Point", "coordinates": [139.7671, 35.6812] },
+      "properties": { "name": "東京駅", "category": "交通" }
     }
   ]
 }
@@ -158,11 +134,7 @@ npx serve .
           [139.7500, 35.6700]
         ]]
       },
-      "properties": {
-        "name": "中央区エリア",
-        "area": "商業地域",
-        "population": "約16万人"
-      }
+      "properties": { "name": "中央区エリア", "area": "商業地域" }
     }
   ]
 }
@@ -170,28 +142,9 @@ npx serve .
 
 ## 🎨 カスタマイズ
 
-### スタイルの変更
-地図のスタイルをカスタマイズしたい場合は、`index.html`内のCSSセクションを編集してください。
-
-### 色の変更
-レイヤーの色を変更するには、JavaScriptの`getRandomColor()`関数を編集してください：
-
-```javascript
-function getRandomColor() {
-    const colors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6'];
-    return colors[Math.floor(Math.random() * colors.length)];
-}
-```
-
-### 地図タイルの変更
-OpenStreetMap以外のタイルを使用したい場合：
-
-```javascript
-L.tileLayer('https://your-tile-server/{z}/{x}/{y}.png', {
-    attribution: '© Your Attribution',
-    maxZoom: 19
-}).addTo(map);
-```
+- **初期色のランダム候補を変更**: `index.html` の `getRandomColor()` の配列を編集
+- **デフォルトのベースマップ**: `index.html` の `currentBaseLayer = baseLayers.osm.addTo(map);` を任意に変更
+- **タイルを追加**: `baseLayers` に新しい `L.tileLayer()` を追加し、セレクトボックスにも `option` を追加
 
 ## 🐛 トラブルシューティング
 
@@ -213,11 +166,8 @@ L.tileLayer('https://your-tile-server/{z}/{x}/{y}.png', {
 - **原因**: 大量のフィーチャーを含むファイル
 - **解決**: データを分割するか、間引き処理を実装
 
-### デバッグモード
-ブラウザの開発者ツールコンソールで詳細なログを確認できます：
-- ファイル読み込み状況
-- エラーメッセージ
-- 座標クリック情報
+### デバッグメモ
+- ブラウザの開発者ツールで、読み込みログやエラー、クリック座標を確認できます
 
 ## 📄 ライセンス
 

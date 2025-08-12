@@ -81,12 +81,14 @@
             border-radius: 5px;
             padding: 15px;
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
         }
         
         .layer-item {
             display: flex;
-            align-items: center;
+            align-items: flex-start;
             justify-content: space-between;
+            gap: 8px;
             padding: 10px;
             margin-bottom: 10px;
             background-color: #f8f9fa;
@@ -96,12 +98,16 @@
         
         .layer-info {
             flex: 1;
+            min-width: 0;
         }
         
         .layer-name {
             font-weight: bold;
             color: #2c3e50;
             margin-bottom: 5px;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+            white-space: normal;
         }
         
         .layer-details {
@@ -111,7 +117,10 @@
         
         .layer-controls {
             display: flex;
-            gap: 5px;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 6px;
+            white-space: nowrap;
         }
         
         .btn {
@@ -123,19 +132,6 @@
             transition: background-color 0.3s;
         }
         
-        .btn-toggle {
-            background-color: #3498db;
-            color: white;
-        }
-        
-        .btn-toggle:hover {
-            background-color: #2980b9;
-        }
-        
-        .btn-toggle.hidden {
-            background-color: #95a5a6;
-        }
-        
         .btn-remove {
             background-color: #e74c3c;
             color: white;
@@ -143,6 +139,16 @@
         
         .btn-remove:hover {
             background-color: #c0392b;
+        }
+        
+        .color-input {
+            width: 36px;
+            height: 28px;
+            padding: 0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background: transparent;
+            cursor: pointer;
         }
         
         #map {
@@ -174,12 +180,12 @@
             
             .sidebar {
                 width: 100%;
-                height: 250px;
+                height: 300px;
                 order: 2;
             }
             
             #map {
-                height: calc(100vh - 330px);
+                height: calc(100vh - 380px);
                 order: 1;
             }
         }
@@ -192,6 +198,16 @@
     
     <div class="container">
         <div class="sidebar">
+            <div class="layers-list">
+                <h4 style="margin-top: 0; color: #2c3e50;">ベースマップ</h4>
+                <select id="basemapSelect" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ccc;">
+                    <option value="osm" selected>OpenStreetMap</option>
+                    <option value="gsiStd">地理院地図（標準）</option>
+                    <option value="gsiPale">地理院白地図</option>
+                </select>
+                <p class="layer-details" style="margin-top: 8px;">切り替えは即時反映されます</p>
+            </div>
+
             <div class="drop-zone" id="dropZone">
                 <h3>📁 GeoJSONファイルをドロップ</h3>
                 <p>GeoJSONファイルをここにドラッグ＆ドロップするか、</p>
@@ -224,14 +240,46 @@
             crossorigin=""></script>
     
     <script>
-        // 地図を初期化（東京駅を中心に）
+        // 地図を初期化（関東広域を中心に）
         const map = L.map('map').setView([35.6812, 139.7671], 10);
 
-        // OpenStreetMapタイルレイヤーを追加
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-            maxZoom: 19
-        }).addTo(map);
+        // ベースマップ定義
+        const attributions = {
+            osm: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            gsi: '<a href="https://maps.gsi.go.jp/development/ichiran.html">地理院タイル</a>（<a href="https://www.gsi.go.jp/">国土地理院</a>）'
+        };
+
+        const baseLayers = {
+            osm: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: attributions.osm,
+                maxZoom: 19
+            }),
+            gsiStd: L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png', {
+                attribution: attributions.gsi,
+                maxZoom: 18
+            }),
+            gsiPale: L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/blank/{z}/{x}/{y}.png', {
+                attribution: attributions.gsi,
+                minZoom: 5,
+                maxZoom: 14
+            })
+        };
+
+        // デフォルトはOSM
+        let currentBaseLayer = baseLayers.osm.addTo(map);
+
+        function setBaseLayer(key) {
+            if (!baseLayers[key]) return;
+            if (currentBaseLayer) {
+                map.removeLayer(currentBaseLayer);
+            }
+            currentBaseLayer = baseLayers[key].addTo(map);
+        }
+
+        // ベースマップ選択イベント
+        document.getElementById('basemapSelect').addEventListener('change', (e) => {
+            setBaseLayer(e.target.value);
+        });
 
         // レイヤー管理
         const loadedLayers = new Map();
@@ -274,7 +322,7 @@
                 Object.keys(feature.properties).forEach(key => {
                     const value = feature.properties[key];
                     if (value !== null && value !== undefined && value !== '') {
-                        popupContent += `<p style="margin: 3px 0;"><strong>${key}:</strong> ${value}</p>`;
+                        popupContent += `<p style=\"margin: 3px 0;\"><strong>${key}:</strong> ${value}</p>`;
                     }
                 });
             } else {
@@ -326,6 +374,35 @@
             }
         }
 
+        // 表示状態の設定（チェックボックス用）
+        function setLayerVisibility(layerId, isVisible) {
+            const layerInfo = loadedLayers.get(layerId);
+            if (!layerInfo) return;
+            if (isVisible) {
+                if (!map.hasLayer(layerInfo.layer)) map.addLayer(layerInfo.layer);
+            } else {
+                if (map.hasLayer(layerInfo.layer)) map.removeLayer(layerInfo.layer);
+            }
+            layerInfo.visible = isVisible;
+            updateLayersList();
+        }
+
+        // レイヤー色変更
+        function changeLayerColor(layerId, color) {
+            const layerInfo = loadedLayers.get(layerId);
+            if (!layerInfo) return;
+            layerInfo.color = color;
+            // 子レイヤーのスタイルを一括更新
+            layerInfo.layer.eachLayer(function (child) {
+                if (child instanceof L.CircleMarker) {
+                    child.setStyle(getPointStyle(color));
+                } else if (child.setStyle) {
+                    child.setStyle(getFeatureStyle(color));
+                }
+            });
+            updateLayersList();
+        }
+
         // レイヤーリストを更新
         function updateLayersList() {
             const layersListElement = document.getElementById('layersList');
@@ -338,37 +415,24 @@
             let html = '';
             loadedLayers.forEach((layerInfo, layerId) => {
                 html += `
-                    <div class="layer-item">
-                        <div class="layer-info">
-                            <div class="layer-name">${layerInfo.name}</div>
-                            <div class="layer-details">${layerInfo.featureCount} フィーチャー</div>
+                    <div class=\"layer-item\" style=\"border-left: 4px solid ${layerInfo.color};\">
+                        <div class=\"layer-info\">
+                            <label class=\"layer-name\" for=\"chk-${layerId}\">${layerInfo.name}</label>
+                            <div class=\"layer-details\">${layerInfo.featureCount} フィーチャー</div>
                         </div>
-                        <div class="layer-controls">
-                            <button class="btn btn-toggle ${!layerInfo.visible ? 'hidden' : ''}" 
-                                    onclick="toggleLayer('${layerId}')">
-                                ${layerInfo.visible ? '非表示' : '表示'}
-                            </button>
-                            <button class="btn btn-remove" onclick="removeLayer('${layerId}')">削除</button>
+                        <div class=\"layer-controls\">
+                            <label style=\"font-size:12px; color:#2c3e50; display:flex; align-items:center; gap:6px;\">
+                                <input type=\"checkbox\" id=\"chk-${layerId}\" ${layerInfo.visible ? 'checked' : ''}
+                                       onchange=\"setLayerVisibility('${layerId}', this.checked)\">表示
+                            </label>
+                            <input class=\"color-input\" type=\"color\" value=\"${layerInfo.color}\" 
+                                   title=\"レイヤー色\" onchange=\"changeLayerColor('${layerId}', this.value)\" />
+                            <button class=\"btn btn-remove\" onclick=\"removeLayer('${layerId}')\">削除</button>
                         </div>
                     </div>
                 `;
             });
             layersListElement.innerHTML = html;
-        }
-
-        // レイヤー表示/非表示切り替え
-        function toggleLayer(layerId) {
-            const layerInfo = loadedLayers.get(layerId);
-            if (layerInfo) {
-                if (layerInfo.visible) {
-                    map.removeLayer(layerInfo.layer);
-                    layerInfo.visible = false;
-                } else {
-                    map.addLayer(layerInfo.layer);
-                    layerInfo.visible = true;
-                }
-                updateLayersList();
-            }
         }
 
         // レイヤー削除
